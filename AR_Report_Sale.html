@@ -12,7 +12,7 @@ body{font-family:Sarabun,sans-serif;font-size:15px;color:#222;background:#f5f5f3
 .header p{font-size:12px;color:#999;margin-top:2px}
 
 /* สลับหน้าเว็บ (Tabs) */
-.tabs {display:flex;background:#fff;border-bottom:1px solid #e5e5e3;padding:0 1 25rem}
+.tabs {display:flex;background:#fff;border-bottom:1px solid #e5e5e3;padding:0 1.25rem}
 .tab-btn {padding:12px 18px;font-family:inherit;font-size:13px;font-weight:600;color:#666;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:all .15s}
 .tab-btn:hover {color:#185fa5}
 .tab-btn.active {color:#185fa5;border-bottom-color:#185fa5}
@@ -159,7 +159,20 @@ td.r,th.r{text-align:right}
 .item-choice-info {display:flex;justify-content:space-between;flex:1;align-items:center}
 .item-choice-amt {font-weight:700;font-size:13px}
 
-/* ⚡ สไตล์สำหรับกล่องสรุปยอดเงินสุทธิยอดใหญ่ด้านบนปุ่ม */
+/* สไตล์แสดงป้ายวันที่แทนป้ายประเภทภายใน Modal */
+.modal-date-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f0f0ee;
+  color: #555;
+  font-weight: 600;
+  margin-left: 8px;
+  border: 1px solid #ddd;
+}
+
+/* กล่องสรุปยอดเงินสุทธิยอดใหญ่ด้านบนปุ่ม */
 .modal-summary-bar {
   padding: 12px 20px;
   background: #f8f9fa;
@@ -176,7 +189,7 @@ td.r,th.r{text-align:right}
 .modal-summary-amt {
   font-size: 20px;
   font-weight: 800;
-  color: #0f6e56; /* เขียวเข้มสวยงามตามสไตล์หน้ารายงานสุทธิ */
+  color: #0f6e56;
 }
 
 .modal-footer {padding:12px;border-top:1px solid #e5e5e3;display:flex;gap:10px}
@@ -257,7 +270,7 @@ td.r,th.r{text-align:right}
     </div>
 
     <div class="modal-summary-bar">
-      <span class="modal-summary-lbl">ยอดสุทธิคงเหลือที่เลือก:</span>
+      <span class="modal-summary-lbl">ยอดสุทธิที่ต้องชำระ:</span>
       <span class="modal-summary-amt" id="modal-net-summary">฿0.00</span>
     </div>
 
@@ -273,7 +286,7 @@ td.r,th.r{text-align:right}
     <h1>📋 รายงานติดตามยอดลูกหนี้คงค้าง
       <span class="owner-tag" id="owner-tag" title="เปลี่ยนผู้รับผิดชอบ"></span>
     </h1>
-    <p>อัปเดตข้อมูล: 30/06/2569</p>
+    <p>อัปเดตข้อมูล: 01/07/2569</p>
   </div>
 
   <div class="tabs">
@@ -374,7 +387,7 @@ function getDueStatus(s){
   if(p.length!==3) return { text: '<span class="due-future">-</span>', code: 0, isOverdue: false };
   
   const dueTime = new Date(Number(p[2])-543, Number(p[1])-1, Number(p[0])).getTime();
-  const upParts = "30/06/2569".split("/");
+  const upParts = "01/07/2569".split("/");
   const todayTime = new Date(Number(upParts[2])-543, Number(upParts[1])-1, Number(upParts[0])).getTime();
   
   const diffTime = dueTime - todayTime;
@@ -489,12 +502,14 @@ function openItemModal() {
       const isChecked = selectedDocMap[r.docNo] !== false ? 'checked' : '';
       const colorStyle = r.amount < 0 ? 'color:#a32d2d' : 'color:#185fa5';
       const amtText = r.amount < 0 ? '('+fmt(r.amount)+')' : fmt(r.amount);
+      
+      // ⚡ จุดที่แก้ไข: เปลี่ยนจากแท็กบอกประเภท (.pill) มาเป็นข้อความแสดง "วันที่เอกสาร" (.modal-date-badge) แทนตามรูปแนบ
       return '<label class="item-choice-row">' +
         '<input type="checkbox" class="modal-choice-cb" data-doc="'+r.docNo+'" '+isChecked+' onchange="onModalCheckboxChange()">' +
         '<div class="item-choice-info">' +
           '<div>' +
             '<strong style="color:#333;">'+r.docNo+'</strong>' +
-            '<span class="pill '+pillClass(r.type)+'" style="margin-left:6px;">'+r.type+'</span>' +
+            '<span class="modal-date-badge">'+r.date+'</span>' +
           '</div>' +
           '<div class="item-choice-amt" style="'+colorStyle+'">'+amtText+'</div>' +
         '</div>' +
@@ -506,7 +521,7 @@ function openItemModal() {
   renderModalList(document.getElementById("modal-credits-list"), cr);
   
   updateMainCheckboxState();
-  calculateModalLiveTotal(); // คำนวณยอดเงินรวมตั้งแต่ตอนเปิดโชว์ครั้งแรก
+  calculateModalLiveTotal();
   
   document.getElementById("item-modal").style.display = "flex";
 }
@@ -521,10 +536,9 @@ function toggleAllModalItems(isChecked) {
     cb.checked = isChecked;
   });
   document.getElementById("select-all-text").textContent = isChecked ? "ล้างทั้งหมด" : "เลือกทั้งหมด";
-  calculateModalLiveTotal(); // อัปเดตยอดเงินรวมทันทีเมื่อมีการติ๊กเลือกทั้งหมด/ล้างทั้งหมด
+  calculateModalLiveTotal();
 }
 
-// ⚡ ฟังก์ชันดักจับเหตุการณ์เมื่อมีการกดติ๊กเลือกที่รายการแต่ละตัวย่อย
 function onModalCheckboxChange() {
   updateMainCheckboxState();
   calculateModalLiveTotal();
@@ -558,7 +572,6 @@ function updateMainCheckboxState() {
   }
 }
 
-// ⚡ ฟังก์ชันคำนวณยอดเงินสุทธิแบบเรียลไทม์ภายใน Modal (ก่อนกดตกลง)
 function calculateModalLiveTotal() {
   const checkboxes = document.querySelectorAll(".modal-choice-cb");
   let total = 0;
@@ -566,22 +579,20 @@ function calculateModalLiveTotal() {
   checkboxes.forEach(cb => {
     if(cb.checked) {
       const docNo = cb.getAttribute("data-doc");
-      // ค้นหาแถวข้อมูลจริงจากรายการแถวทำงานปัจจุบันเพื่อดูราคา
       const matchRow = currentActiveRows.find(r => r.docNo === docNo);
       if(matchRow) {
-        total += matchRow.amount; // นำไปบวกหรือลบค่าตามตัวเลขดิบจริง (ยอดลดหนี้เป็นลบอยู่แล้ว)
+        total += matchRow.amount;
       }
     }
   });
   
-  // บันทึกและแสดงผลรวมลงในกล่องสีแดงด้านบนปุ่ม
   const summaryAmtElement = document.getElementById("modal-net-summary");
   if(total < 0) {
     summaryAmtElement.textContent = "(" + fmt(total) + ")";
-    summaryAmtElement.style.color = "#a32d2d"; // ถ้าติดลบให้ใช้ตัวอักษรสีแดงตามแบบรายงานบัญชี
+    summaryAmtElement.style.color = "#a32d2d";
   } else {
     summaryAmtElement.textContent = fmt(total);
-    summaryAmtElement.style.color = "#0f6e56"; // ถ้าค่าเป็นบวกให้ใช้สีเขียว
+    summaryAmtElement.style.color = "#0f6e56";
   }
 }
 
