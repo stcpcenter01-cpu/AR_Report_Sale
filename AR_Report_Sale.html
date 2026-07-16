@@ -337,8 +337,8 @@ td.r,th.r{text-align:right}
               <th>เลขที่เอกสาร</th>
               <th>ประเภท</th>
               <th>วันที่</th>
-              <th>กำหนดชำระ</th>
-              <th>สถานะหนี้</th>
+              <th>อายุเอกสาร</th> <!-- เปลี่ยนจาก 'กำหนดชำระ' -->
+              <th>สถานะอายุ</th>   <!-- เปลี่ยนจาก 'สถานะหนี้' -->
               <th class="r">จำนวนเงิน</th>
             </tr>
           </thead>
@@ -432,6 +432,32 @@ function getDueStatus(s){
   }
 }
 
+function getDocAge(docDateStr) {
+  if (!docDateStr || docDateStr === "-") return { days: 0, text: '<span class="due-future">-</span>' };
+  const p = docDateStr.split("/");
+  if (p.length !== 3) return { days: 0, text: '<span class="due-future">-</span>' };
+  
+  // แปลงวันที่เอกสาร (ปี พ.ศ. -> ค.ศ.)
+  const docTime = new Date(Number(p[2]) - 543, Number(p[1]) - 1, Number(p[0])).getTime();
+  // วันที่อัปเดตข้อมูลล่าสุด
+  const upParts = "16/07/2569".split("/");
+  const todayTime = new Date(Number(upParts[2]) - 543, Number(upParts[1]) - 1, Number(upParts[0])).getTime();
+  
+  const diffTime = todayTime - docTime;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 0) {
+    return { days: 0, text: '<span class="due-today">วันนี้</span>' };
+  } else {
+    // เน้นสีแดงเข้มขึ้นหากเอกสารค้างนาน (ตัวอย่างเช่น เกิน 30 วัน) สามารถปรับเปลี่ยนเงื่อนไขได้ตามต้องการ
+    const styleClass = diffDays > 30 ? 'due-overdue' : 'due-future';
+    return { 
+      days: diffDays, 
+      text: '<span class="' + styleClass + '">อายุ ' + diffDays + ' วัน</span>' 
+    };
+  }
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
@@ -500,31 +526,88 @@ function loadOwnerShops(owner){
   });
 }
 
-function renderAllCreditItemsPage() {
-  const ownerRows = DATA.filter(r => r.owner === selectedOwner);
-  const tbody = document.getElementById("b-credit-all");
+function renderAllItemsPage() {
+  // 1. ตรวจสอบก่อนว่ามีการเลือกรหัสผู้รับผิดชอบหรือยัง
+  if (!selectedOwner) return;
+
+  const ownerRows = DATA.filter(r => String(r.owner).trim() === String(selectedOwner).trim());
+  const tbody = document.getElementById("b-all");
   
-  if(!ownerRows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระ</td></tr>';
+  if (!ownerRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระของผู้รับผิดชอบท่านนี้</td></tr>';
     return;
   }
   
-  // คัดกรองเฉพาะตัวที่เป็น CREDIT_TYPES (ลดหนี้ / เงินล่วงหน้า)
+  // 2. ปรับตัวกรอง: อะไรก็ตามที่ไม่ใช่รายการลดหนี้/เงินล่วงหน้า (CREDIT_TYPES) ให้ถือเป็นรายการหนี้หลักทั้งหมด
+  // วิธีนี้จะปลอดภัยกว่าการดักชื่อ "การขาย" ตรงๆ เผื่อกรณีใน Excel สะกดต่างออกไป
+  const onlySalesRows = ownerRows.filter(r => !CREDIT_TYPES.has(r.type));
+  
+  if (!onlySalesRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการขายหรือบริการค้างชำระ</td></tr>';
+    return;
+  }
+  
+  // 3. แปลงและคำนวณสถานะวันครบกำหนด
+  const mappedRows = onlySalesRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
+  
+  // 4. เรียงลำดับตามความเร่งด่วน (เกินกำหนดมากสุดอยู่บนสุด)
+  mappedRows.sort((a,b) => a.statusInfo.code - b.statusInfo.code);
+  
+  // 5. วาดตารางออกสู่หน้าจอ HTML
+  tbody.innerHTML = mappedRows.map(r => {
+    const s = r.statusInfo;
+    const dueCell = s.isOverdue ? '<span class="overdue">'+r.due+'</span>' : r.due;
+    const amt = r.amount < 0 ? '<span class="c-red">('+fmt(r.amount)+')</span>' : fmt(r.amount);
+    
+    return '<tr>' +
+      '<td>'+r.shop+'</td>' +
+      '<td>'+r.docNo+'</td>' +
+      '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
+      '<td>'+r.date+'</td>' +
+      '<td>'+dueCell+'</td>' +
+      '<td>'+s.text+'</td>' +
+      '<td class="r">'+amt+'</td>' +
+    '</tr>';
+  }).join("");
+}
+
+function renderAllCreditItemsPage() {
+  // เช็กล็อกอินความปลอดภัยแบบเดียวกับ TAB 1
+  if (!selectedOwner) return;
+
+  const ownerRows = DATA.filter(r => String(r.owner).trim() === String(selectedOwner).trim());
+  const tbody = document.getElementById("b-credit-all");
+  
+  if(!ownerRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระของผู้รับผิดชอบท่านนี้</td></tr>';
+    return;
+  }
+  
   const onlyCreditRows = ownerRows.filter(r => CREDIT_TYPES.has(r.type));
   if(!onlyCreditRows.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการลดหนี้หรือเงินล่วงหน้าค้างชำระ</td></tr>';
     return;
   }
   
-  const mappedRows = onlyCreditRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
-  // เรียงลำดับตามวันที่ หรือรหัสเอกสาร (ตามโค้ดนี้เรียงตามรหัสความเร่งด่วนของวันครบกำหนด)
-  mappedRows.sort((a,b) => a.statusInfo.code - b.statusInfo.code);
+  // คำนวณอายุเอกสารโดยใช้ค่าจากวันที่เอกสาร (r.date)
+  const mappedRows = onlyCreditRows.map(r => ({...r, ageInfo: getDocAge(r.date)}));
+  
+  // จัดเรียงตามอายุเอกสาร: จากเก่าไปใหม่ (วันเยอะอยู่บน)
+  mappedRows.sort((a,b) => b.ageInfo.days - a.ageInfo.days);
   
   tbody.innerHTML = mappedRows.map(r => {
-    const s = r.statusInfo;
-    const dueCell = s.isOverdue ? '<span class="overdue">'+r.due+'</span>' : r.due;
+    const age = r.ageInfo;
     const amt = r.amount < 0 ? '<span class="c-red">('+fmt(r.amount)+')</span>' : fmt(r.amount);
-    return '<tr><td>'+r.shop+'</td><td>'+r.docNo+'</td><td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td><td>'+r.date+'</td><td>'+dueCell+'</td><td>'+s.text+'</td><td class="r">'+amt+'</td></tr>';
+    
+    return '<tr>' +
+      '<td>'+r.shop+'</td>' +
+      '<td>'+r.docNo+'</td>' +
+      '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
+      '<td>'+r.date+'</td>' +
+      '<td>' + age.days + ' วัน</td>' + // 💡 แก้ไข: แสดงจำนวนตัวเลขอายุวันตรงนี้ให้ตรงกับหัวตาราง
+      '<td>'+age.text+'</td>' +        // คอลัมน์สถานะอายุ (แสดงป้ายสีหรือข้อความเตือน)
+      '<td class="r">'+amt+'</td>' +
+    '</tr>';
   }).join("");
 }
 
