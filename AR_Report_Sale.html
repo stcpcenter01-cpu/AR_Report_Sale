@@ -572,14 +572,11 @@ function renderAllItemsPage() {
 }
 
 function renderAllCreditItemsPage() {
-  // เช็กล็อกอินความปลอดภัยแบบเดียวกับ TAB 1
-  if (!selectedOwner) return;
-
-  const ownerRows = DATA.filter(r => String(r.owner).trim() === String(selectedOwner).trim());
+  const ownerRows = DATA.filter(r => r.owner === selectedOwner);
   const tbody = document.getElementById("b-credit-all");
   
   if(!ownerRows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระของผู้รับผิดชอบท่านนี้</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระ</td></tr>';
     return;
   }
   
@@ -589,10 +586,10 @@ function renderAllCreditItemsPage() {
     return;
   }
   
-  // คำนวณอายุเอกสารโดยใช้ค่าจากวันที่เอกสาร (r.date)
+  // คำนวณอายุเอกสารโดยใช้ค่าจากวันที่เอกสาร (r.date) แทนวันครบกำหนด
   const mappedRows = onlyCreditRows.map(r => ({...r, ageInfo: getDocAge(r.date)}));
   
-  // จัดเรียงตามอายุเอกสาร: จากเก่าไปใหม่ (วันเยอะอยู่บน)
+  // จัดเรียงตามอายุเอกสาร: จากอายุวันมากที่สุดไปหาน้อยที่สุด (เอกสารเก่าอยู่บน)
   mappedRows.sort((a,b) => b.ageInfo.days - a.ageInfo.days);
   
   tbody.innerHTML = mappedRows.map(r => {
@@ -604,8 +601,8 @@ function renderAllCreditItemsPage() {
       '<td>'+r.docNo+'</td>' +
       '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
       '<td>'+r.date+'</td>' +
-      '<td>' + age.days + ' วัน</td>' + // 💡 แก้ไข: แสดงจำนวนตัวเลขอายุวันตรงนี้ให้ตรงกับหัวตาราง
-      '<td>'+age.text+'</td>' +        // คอลัมน์สถานะอายุ (แสดงป้ายสีหรือข้อความเตือน)
+      '<td>'+r.date+'</td>' + // คอลัมน์อายุเอกสาร (แสดงวันที่คู่ขนาน หรือเปลี่ยนเป็นคำว่า - ก็ได้)
+      '<td>'+age.text+'</td>' + // แสดงข้อความ "อายุ X วัน"
       '<td class="r">'+amt+'</td>' +
     '</tr>';
   }).join("");
