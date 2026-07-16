@@ -286,14 +286,17 @@ td.r,th.r{text-align:right}
     <h1>📋 รายงานติดตามยอดลูกหนี้คงค้าง
       <span class="owner-tag" id="owner-tag" title="เปลี่ยนผู้รับผิดชอบ"></span>
     </h1>
-    <p>อัปเดตข้อมูล: 15/07/2569</p>
+    <p>อัปเดตข้อมูล: 16/07/2569</p>
   </div>
 
+  <!-- แถบปุ่มสลับหน้าเว็บ (Tabs) เรียงลำดับใหม่ -->
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tab1')">🗓️ รายงานหนี้ตามวันครบกำหนด</button>
-    <button class="tab-btn" onclick="switchTab('tab2')">🏪 สรุปยอดแยกรายร้านค้า</button>
+    <button class="tab-btn" onclick="switchTab('tab2')">🔻 รายการลดหนี้ / เงินล่วงหน้าทั้งหมด</button>
+    <button class="tab-btn" onclick="switchTab('tab3')">🏪 สรุปยอดแยกรายร้านค้า</button>
   </div>
 
+  <!-- TAB 1: รายงานหนี้ตามวันครบกำหนด (เดิม) -->
   <div id="page-tab1" class="tab-content">
     <div class="section">
       <div class="sec-title-wrap">
@@ -319,7 +322,34 @@ td.r,th.r{text-align:right}
     </div>
   </div>
 
+  <!-- TAB 2 (ใหม่): รายการลดหนี้ / เงินล่วงหน้าทั้งหมด -->
   <div id="page-tab2" class="tab-content" style="display:none">
+    <div class="section">
+      <div class="sec-title-wrap">
+        <span class="sec-title">รายการลดหนี้และเงินล่วงหน้าทั้งหมดของผู้รับผิดชอบ</span>
+        <button class="print-btn" onclick="window.print()">พิมพ์หน้านี้</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ร้านค้า / ลูกหนี้</th>
+              <th>เลขที่เอกสาร</th>
+              <th>ประเภท</th>
+              <th>วันที่</th>
+              <th>กำหนดชำระ</th>
+              <th>สถานะหนี้</th>
+              <th class="r">จำนวนเงิน</th>
+            </tr>
+          </thead>
+          <tbody id="b-credit-all"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3 (เดิมคือ TAB 2): สรุปยอดแยกรายร้านค้า -->
+  <div id="page-tab3" class="tab-content" style="display:none">
     <div class="controls">
       <label for="shop-search">ค้นหาร้านค้า</label>
       <div class="search-wrapper">
@@ -387,7 +417,7 @@ function getDueStatus(s){
   if(p.length!==3) return { text: '<span class="due-future">-</span>', code: 0, isOverdue: false };
   
   const dueTime = new Date(Number(p[2])-543, Number(p[1])-1, Number(p[0])).getTime();
-  const upParts = "15/07/2569".split("/");
+  const upParts = "16/07/2569".split("/");
   const todayTime = new Date(Number(upParts[2])-543, Number(upParts[1])-1, Number(upParts[0])).getTime();
   
   const diffTime = dueTime - todayTime;
@@ -410,9 +440,13 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
     document.getElementById('page-tab1').style.display = 'block';
     renderAllItemsPage();
-  } else {
+  } else if(tabId === 'tab2') {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
     document.getElementById('page-tab2').style.display = 'block';
+    renderAllCreditItemsPage(); // เรียกฟังก์ชันแสดงผลแท็บใหม่
+  } else {
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.getElementById('page-tab3').style.display = 'block';
   }
 }
 
@@ -466,20 +500,24 @@ function loadOwnerShops(owner){
   });
 }
 
-function renderAllItemsPage() {
+function renderAllCreditItemsPage() {
   const ownerRows = DATA.filter(r => r.owner === selectedOwner);
-  const tbody = document.getElementById("b-all");
+  const tbody = document.getElementById("b-credit-all");
   
   if(!ownerRows.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระ</td></tr>';
     return;
   }
-  const onlySalesRows = ownerRows.filter(r => r.type === "การขาย" || r.type === "การขาย (บริการ)");
-  if(!onlySalesRows.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการขายหรือบริการค้างชำระ</td></tr>';
+  
+  // คัดกรองเฉพาะตัวที่เป็น CREDIT_TYPES (ลดหนี้ / เงินล่วงหน้า)
+  const onlyCreditRows = ownerRows.filter(r => CREDIT_TYPES.has(r.type));
+  if(!onlyCreditRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการลดหนี้หรือเงินล่วงหน้าค้างชำระ</td></tr>';
     return;
   }
-  const mappedRows = onlySalesRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
+  
+  const mappedRows = onlyCreditRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
+  // เรียงลำดับตามวันที่ หรือรหัสเอกสาร (ตามโค้ดนี้เรียงตามรหัสความเร่งด่วนของวันครบกำหนด)
   mappedRows.sort((a,b) => a.statusInfo.code - b.statusInfo.code);
   
   tbody.innerHTML = mappedRows.map(r => {
