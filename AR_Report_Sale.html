@@ -337,8 +337,8 @@ td.r,th.r{text-align:right}
               <th>เลขที่เอกสาร</th>
               <th>ประเภท</th>
               <th>วันที่</th>
-              <th>กำหนดชำระ</th>
-              <th>สถานะหนี้</th>
+              <th>อายุเอกสาร</th> <!-- เปลี่ยนจาก 'กำหนดชำระ' -->
+              <th>สถานะอายุ</th>   <!-- เปลี่ยนจาก 'สถานะหนี้' -->
               <th class="r">จำนวนเงิน</th>
             </tr>
           </thead>
@@ -432,6 +432,32 @@ function getDueStatus(s){
   }
 }
 
+function getDocAge(docDateStr) {
+  if (!docDateStr || docDateStr === "-") return { days: 0, text: '<span class="due-future">-</span>' };
+  const p = docDateStr.split("/");
+  if (p.length !== 3) return { days: 0, text: '<span class="due-future">-</span>' };
+  
+  // แปลงวันที่เอกสาร (ปี พ.ศ. -> ค.ศ.)
+  const docTime = new Date(Number(p[2]) - 543, Number(p[1]) - 1, Number(p[0])).getTime();
+  // วันที่อัปเดตข้อมูลล่าสุด
+  const upParts = "16/07/2569".split("/");
+  const todayTime = new Date(Number(upParts[2]) - 543, Number(upParts[1]) - 1, Number(upParts[0])).getTime();
+  
+  const diffTime = todayTime - docTime;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 0) {
+    return { days: 0, text: '<span class="due-today">วันนี้</span>' };
+  } else {
+    // เน้นสีแดงเข้มขึ้นหากเอกสารค้างนาน (ตัวอย่างเช่น เกิน 30 วัน) สามารถปรับเปลี่ยนเงื่อนไขได้ตามต้องการ
+    const styleClass = diffDays > 30 ? 'due-overdue' : 'due-future';
+    return { 
+      days: diffDays, 
+      text: '<span class="' + styleClass + '">อายุ ' + diffDays + ' วัน</span>' 
+    };
+  }
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
@@ -509,22 +535,31 @@ function renderAllCreditItemsPage() {
     return;
   }
   
-  // คัดกรองเฉพาะตัวที่เป็น CREDIT_TYPES (ลดหนี้ / เงินล่วงหน้า)
   const onlyCreditRows = ownerRows.filter(r => CREDIT_TYPES.has(r.type));
   if(!onlyCreditRows.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการลดหนี้หรือเงินล่วงหน้าค้างชำระ</td></tr>';
     return;
   }
   
-  const mappedRows = onlyCreditRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
-  // เรียงลำดับตามวันที่ หรือรหัสเอกสาร (ตามโค้ดนี้เรียงตามรหัสความเร่งด่วนของวันครบกำหนด)
-  mappedRows.sort((a,b) => a.statusInfo.code - b.statusInfo.code);
+  // คำนวณอายุเอกสารโดยใช้ค่าจากวันที่เอกสาร (r.date) แทนวันครบกำหนด
+  const mappedRows = onlyCreditRows.map(r => ({...r, ageInfo: getDocAge(r.date)}));
+  
+  // จัดเรียงตามอายุเอกสาร: จากอายุวันมากที่สุดไปหาน้อยที่สุด (เอกสารเก่าอยู่บน)
+  mappedRows.sort((a,b) => b.ageInfo.days - a.ageInfo.days);
   
   tbody.innerHTML = mappedRows.map(r => {
-    const s = r.statusInfo;
-    const dueCell = s.isOverdue ? '<span class="overdue">'+r.due+'</span>' : r.due;
+    const age = r.ageInfo;
     const amt = r.amount < 0 ? '<span class="c-red">('+fmt(r.amount)+')</span>' : fmt(r.amount);
-    return '<tr><td>'+r.shop+'</td><td>'+r.docNo+'</td><td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td><td>'+r.date+'</td><td>'+dueCell+'</td><td>'+s.text+'</td><td class="r">'+amt+'</td></tr>';
+    
+    return '<tr>' +
+      '<td>'+r.shop+'</td>' +
+      '<td>'+r.docNo+'</td>' +
+      '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
+      '<td>'+r.date+'</td>' +
+      '<td>'+r.date+'</td>' + // คอลัมน์อายุเอกสาร (แสดงวันที่คู่ขนาน หรือเปลี่ยนเป็นคำว่า - ก็ได้)
+      '<td>'+age.text+'</td>' + // แสดงข้อความ "อายุ X วัน"
+      '<td class="r">'+amt+'</td>' +
+    '</tr>';
   }).join("");
 }
 
