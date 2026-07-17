@@ -286,7 +286,7 @@ td.r,th.r{text-align:right}
     <h1>📋 รายงานติดตามยอดลูกหนี้คงค้าง
       <span class="owner-tag" id="owner-tag" title="เปลี่ยนผู้รับผิดชอบ"></span>
     </h1>
-    <p>อัปเดตข้อมูล: 16/07/2569</p>
+    <p>อัปเดตข้อมูล: 17/07/2569</p>
   </div>
 
   <!-- แถบปุ่มสลับหน้าเว็บ (Tabs) เรียงลำดับใหม่ -->
@@ -417,7 +417,7 @@ function getDueStatus(s){
   if(p.length!==3) return { text: '<span class="due-future">-</span>', code: 0, isOverdue: false };
   
   const dueTime = new Date(Number(p[2])-543, Number(p[1])-1, Number(p[0])).getTime();
-  const upParts = "16/07/2569".split("/");
+  const upParts = "17/07/2569".split("/");
   const todayTime = new Date(Number(upParts[2])-543, Number(upParts[1])-1, Number(upParts[0])).getTime();
   
   const diffTime = dueTime - todayTime;
@@ -440,7 +440,7 @@ function getDocAge(docDateStr) {
   // แปลงวันที่เอกสาร (ปี พ.ศ. -> ค.ศ.)
   const docTime = new Date(Number(p[2]) - 543, Number(p[1]) - 1, Number(p[0])).getTime();
   // วันที่อัปเดตข้อมูลล่าสุด
-  const upParts = "16/07/2569".split("/");
+  const upParts = "17/07/2569".split("/");
   const todayTime = new Date(Number(upParts[2]) - 543, Number(upParts[1]) - 1, Number(upParts[0])).getTime();
   
   const diffTime = todayTime - docTime;
@@ -601,8 +601,8 @@ function renderAllCreditItemsPage() {
       '<td>'+r.docNo+'</td>' +
       '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
       '<td>'+r.date+'</td>' +
-      '<td>'+r.date+'</td>' + // คอลัมน์อายุเอกสาร (แสดงวันที่คู่ขนาน หรือเปลี่ยนเป็นคำว่า - ก็ได้)
-      '<td>'+age.text+'</td>' + // แสดงข้อความ "อายุ X วัน"
+      '<td style="text-align: center;"> - </td>' + // 💡 แก้ไขเป็นคำว่า " - " และจัดให้อยู่ตรงกลางเรียบร้อยครับ
+      '<td>'+age.text+'</td>' +        // แสดงข้อความสถานะอายุ เช่น "อายุ X วัน"
       '<td class="r">'+amt+'</td>' +
     '</tr>';
   }).join("");
