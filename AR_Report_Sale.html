@@ -107,6 +107,20 @@ td.r,th.r{text-align:right}
 .empty{text-align:center;padding:2rem;color:#bbb;font-size:13px}
 .placeholder{text-align:center;padding:3rem 1rem;color:#bbb;font-size:14px}
 
+/* หน้าต่างการล็อกอินเดิม */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:100}
+.popup{background:#fff;border-radius:12px;padding:2rem 1.5rem;width:320px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.15)}
+.popup h2{font-size:16px;font-weight:500;margin-bottom:6px;color:#222}
+.popup p{font-size:13px;color:#999;margin-bottom:1.25rem}
+.owner-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem}
+.owner-btn{padding:.6rem;border:1px solid #ddd;border-radius:8px;font-size:14px;font-weight:500;background:#f5f5f3;cursor:pointer;font-family:inherit;color:#333;transition:background .15s}
+.owner-btn:hover{background:#e6f1fb;border-color:#185fa5;color:#185fa5}
+.owner-btn.active{background:#185fa5;border-color:#185fa5;color:#fff}
+.confirm-btn{width:100%;padding:.7rem;background:#185fa5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+.confirm-btn:disabled{background:#ccc;cursor:not-allowed}
+.owner-tag{display:inline-block;background:#e6f1fb;color:#185fa5;font-size:12px;padding:2px 10px;border-radius:999px;margin-left:8px;cursor:pointer}
+.owner-tag:hover{background:#185fa5;color:#fff}
+
 /* หน้าต่าง Popup (Modal) เลือกรายการ */
 .modal-overlay {position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:200}
 .modal-box {background:#fff;border-radius:12px;width:90%;max-width:460px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.2)}
@@ -221,6 +235,15 @@ td.r,th.r{text-align:right}
 </head>
 <body>
 
+<div class="overlay" id="overlay">
+  <div class="popup">
+    <h2>การติดตามยอดลูกหนี้</h2>
+    <p>กรุณาเลือกรหัสผู้รับผิดชอบของคุณ</p>
+    <div class="owner-grid" id="owner-grid"></div>
+    <button class="confirm-btn" id="confirm-btn" disabled>เข้าสู่ระบบ</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="item-modal">
   <div class="modal-box">
     <div class="modal-header">
@@ -258,17 +281,21 @@ td.r,th.r{text-align:right}
   </div>
 </div>
 
-<div id="app">
+<div id="app" style="display:none">
   <div class="header">
-    <h1>📋 รายงานติดตามยอดลูกหนี้คงค้าง</h1>
+    <h1>📋 รายงานติดตามยอดลูกหนี้คงค้าง
+      <span class="owner-tag" id="owner-tag" title="เปลี่ยนผู้รับผิดชอบ"></span>
+    </h1>
     <p>อัปเดตข้อมูล: 26/08/2569</p>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('tab1')">🗓️ รายงานหนี้ตามวันครบกำหนด</button>
-    <button class="tab-btn" onclick="switchTab('tab2')">🏪 สรุปยอดแยกรายร้านค้า</button>
+    <button class="tab-btn" onclick="switchTab('tab2')">🔻 รายการลดหนี้ / เงินล่วงหน้าทั้งหมด</button>
+    <button class="tab-btn" onclick="switchTab('tab3')">🏪 สรุปยอดแยกรายร้านค้า</button>
   </div>
 
+  <!-- TAB 1: รายงานหนี้ตามวันครบกำหนด -->
   <div id="page-tab1" class="tab-content">
     <div class="section">
       <div class="sec-title-wrap">
@@ -294,7 +321,34 @@ td.r,th.r{text-align:right}
     </div>
   </div>
 
+  <!-- TAB 2 (ใหม่): รายการลดหนี้ / เงินล่วงหน้าทั้งหมด -->
   <div id="page-tab2" class="tab-content" style="display:none">
+    <div class="section">
+      <div class="sec-title-wrap">
+        <span class="sec-title">รายการลดหนี้และเงินล่วงหน้าทั้งหมดของผู้รับผิดชอบ</span>
+        <button class="print-btn" onclick="window.print()">พิมพ์หน้านี้</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ร้านค้า / ลูกหนี้</th>
+              <th>เลขที่เอกสาร</th>
+              <th>ประเภท</th>
+              <th>วันที่เอกสาร</th>
+              <th style="text-align: center;">อายุเอกสาร</th>
+              <th>สถานะอายุ</th>
+              <th class="r">จำนวนเงิน</th>
+            </tr>
+          </thead>
+          <tbody id="b-credit-all"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3 (เดิมคือ TAB 2): สรุปยอดแยกรายร้านค้า -->
+  <div id="page-tab3" class="tab-content" style="display:none">
     <div class="controls">
       <label for="shop-search">ค้นหาร้านค้า</label>
       <div class="search-wrapper">
@@ -348,6 +402,7 @@ const fmtCardMinus=n=>{
 let currentOwnerShops = new Set(); 
 let currentActiveRows = []; 
 let selectedDocMap = {}; 
+let selectedOwner = "";
 
 function pillClass(t){
   if(CREDIT_TYPES.has(t)) return "p-cr";
@@ -377,6 +432,29 @@ function getDueStatus(s){
   }
 }
 
+function getDocAge(docDateStr) {
+  if (!docDateStr || docDateStr === "-") return { days: 0, text: '<span class="due-future">-</span>' };
+  const p = docDateStr.split("/");
+  if (p.length !== 3) return { days: 0, text: '<span class="due-future">-</span>' };
+  
+  const docTime = new Date(Number(p[2]) - 543, Number(p[1]) - 1, Number(p[0])).getTime();
+  const upParts = "26/08/2569".split("/");
+  const todayTime = new Date(Number(upParts[2]) - 543, Number(upParts[1]) - 1, Number(upParts[0])).getTime();
+  
+  const diffTime = todayTime - docTime;
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays <= 0) {
+    return { days: 0, text: '<span class="due-today">วันนี้</span>' };
+  } else {
+    const styleClass = diffDays > 30 ? 'due-overdue' : 'due-future';
+    return { 
+      days: diffDays, 
+      text: '<span class="' + styleClass + '">อายุ ' + diffDays + ' วัน</span>' 
+    };
+  }
+}
+
 function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
@@ -385,14 +463,55 @@ function switchTab(tabId) {
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
     document.getElementById('page-tab1').style.display = 'block';
     renderAllItemsPage();
-  } else {
+  } else if(tabId === 'tab2') {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
     document.getElementById('page-tab2').style.display = 'block';
+    renderAllCreditItemsPage();
+  } else {
+    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.getElementById('page-tab3').style.display = 'block';
   }
 }
 
-function loadAllShops(){
-  const shops=[...new Set(DATA.map(r=>r.shop).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"th"));
+const owners=[...new Set(DATA.map(r=>r.owner).filter(Boolean))].sort();
+const grid=document.getElementById("owner-grid");
+const confirmBtn=document.getElementById("confirm-btn");
+
+owners.forEach(o=>{
+  const btn=document.createElement("button");
+  btn.className="owner-btn";
+  btn.textContent=o;
+  btn.onclick=()=>{
+    document.querySelectorAll(".owner-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    selectedOwner=o;
+    confirmBtn.disabled=false;
+  };
+  grid.appendChild(btn);
+});
+
+confirmBtn.onclick=()=>{
+  document.getElementById("overlay").style.display="none";
+  document.getElementById("app").style.display="";
+  document.getElementById("owner-tag").textContent=selectedOwner;
+  loadOwnerShops(selectedOwner);
+  switchTab('tab1'); 
+};
+
+document.getElementById("owner-tag").onclick=()=>{
+  document.getElementById("overlay").style.display="flex";
+  document.getElementById("app").style.display="none";
+  document.getElementById("main").style.display="none";
+  document.getElementById("ph").style.display="";
+  document.getElementById("shop-search").value="";
+  document.getElementById("shop-list").innerHTML="";
+  currentActiveRows = [];
+  selectedDocMap = {};
+};
+
+function loadOwnerShops(owner){
+  const ownerData=DATA.filter(r=>r.owner===owner);
+  const shops=[...new Set(ownerData.map(r=>r.shop))].sort((a,b)=>a.localeCompare(b,"th"));
   currentOwnerShops = new Set(shops);
   const dl=document.getElementById("shop-list");
   dl.innerHTML='';
@@ -404,17 +523,22 @@ function loadAllShops(){
 }
 
 function renderAllItemsPage() {
+  if (!selectedOwner) return;
+
+  const ownerRows = DATA.filter(r => String(r.owner).trim() === String(selectedOwner).trim());
   const tbody = document.getElementById("b-all");
-  if(!DATA.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระ</td></tr>';
+  
+  if(!ownerRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระของผู้รับผิดชอบท่านนี้</td></tr>';
     return;
   }
-  const onlySalesRows = DATA.filter(r => r.type === "การขาย" || r.type === "การขาย (บริการ)");
   
+  const onlySalesRows = ownerRows.filter(r => !CREDIT_TYPES.has(r.type));
   if(!onlySalesRows.length) {
     tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการขายหรือบริการค้างชำระ</td></tr>';
     return;
   }
+  
   const mappedRows = onlySalesRows.map(r => ({...r, statusInfo: getDueStatus(r.due)}));
   mappedRows.sort((a,b) => a.statusInfo.code - b.statusInfo.code);
   
@@ -422,41 +546,56 @@ function renderAllItemsPage() {
     const s = r.statusInfo;
     const dueCell = s.isOverdue ? '<span class="overdue">'+r.due+'</span>' : r.due;
     const amt = r.amount < 0 ? '<span class="c-red">('+fmt(r.amount)+')</span>' : fmt(r.amount);
-    return '<tr><td>'+r.shop+'</td><td>'+r.docNo+'</td><td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td><td>'+r.date+'</td><td>'+dueCell+'</td><td>'+s.text+'</td><td class="r">'+amt+'</td></tr>';
+    
+    return '<tr>' +
+      '<td>'+r.shop+'</td>' +
+      '<td>'+r.docNo+'</td>' +
+      '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
+      '<td>'+r.date+'</td>' +
+      '<td>'+dueCell+'</td>' +
+      '<td>'+s.text+'</td>' +
+      '<td class="r">'+amt+'</td>' +
+    '</tr>';
   }).join("");
 }
 
-// ผูกตัวแปรเข้ากับ element บนหน้าเว็บ
-const shopInput = document.getElementById("shop-search");
+function renderAllCreditItemsPage() {
+  if (!selectedOwner) return;
 
-// ดักจับการพ่นคำค้นหา
-shopInput.addEventListener("input",(e)=>{
-  const shop=e.target.value.trim();
-  if(!shop || !currentOwnerShops.has(shop)){
-    document.getElementById("main").style.display="none";
-    document.getElementById("ph").style.display="";
-    currentActiveRows = [];
-    selectedDocMap = {};
+  const ownerRows = DATA.filter(r => String(r.owner).trim() === String(selectedOwner).trim());
+  const tbody = document.getElementById("b-credit-all");
+  
+  if(!ownerRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีข้อมูลรายงานค้างชำระของผู้รับผิดชอบท่านนี้</td></tr>';
     return;
   }
   
-  currentActiveRows = DATA.filter(r=>r.shop===shop);
-  selectedDocMap = {}; 
+  const onlyCreditRows = ownerRows.filter(r => CREDIT_TYPES.has(r.type));
+  if(!onlyCreditRows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">ไม่มีรายการลดหนี้หรือเงินล่วงหน้าค้างชำระ</td></tr>';
+    return;
+  }
   
-  refreshMainDisplay();
+  const mappedRows = onlyCreditRows.map(r => ({...r, ageInfo: getDocAge(r.date)}));
+  mappedRows.sort((a,b) => b.ageInfo.days - a.ageInfo.days);
   
-  document.getElementById("main").style.display="";
-  document.getElementById("ph").style.display="none";
-});
+  tbody.innerHTML = mappedRows.map(r => {
+    const age = r.ageInfo;
+    const amt = r.amount < 0 ? '<span class="c-red">('+fmt(r.amount)+')</span>' : fmt(r.amount);
+    
+    return '<tr>' +
+      '<td>'+r.shop+'</td>' +
+      '<td>'+r.docNo+'</td>' +
+      '<td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td>' +
+      '<td>'+r.date+'</td>' +
+      '<td style="text-align: center;"> - </td>' +
+      '<td>'+age.text+'</td>' +
+      '<td class="r">'+amt+'</td>' +
+    '</tr>';
+  }).join("");
+}
 
-document.getElementById("btn-clear-action").addEventListener("click", () => {
-  shopInput.value = "";
-  document.getElementById("main").style.display="none";
-  document.getElementById("ph").style.display="";
-  currentActiveRows = [];
-  selectedDocMap = {};
-  shopInput.focus();
-});
+const shopInput = document.getElementById("shop-search");
 
 function openItemModal() {
   const inv = currentActiveRows.filter(r => !CREDIT_TYPES.has(r.type));
@@ -590,6 +729,34 @@ function refreshMainDisplay() {
   renderRows(document.getElementById("b2"), filteredCr);
 }
 
+shopInput.addEventListener("input",(e)=>{
+  const shop=e.target.value.trim();
+  if(!shop || !currentOwnerShops.has(shop)){
+    document.getElementById("main").style.display="none";
+    document.getElementById("ph").style.display="";
+    currentActiveRows = [];
+    selectedDocMap = {};
+    return;
+  }
+  
+  currentActiveRows = DATA.filter(r=>r.owner===selectedOwner&&r.shop===shop);
+  selectedDocMap = {}; 
+  
+  refreshMainDisplay();
+  
+  document.getElementById("main").style.display="";
+  document.getElementById("ph").style.display="none";
+});
+
+document.getElementById("btn-clear-action").addEventListener("click", () => {
+  shopInput.value = "";
+  document.getElementById("main").style.display="none";
+  document.getElementById("ph").style.display="";
+  currentActiveRows = [];
+  selectedDocMap = {};
+  shopInput.focus();
+});
+
 function renderRows(tbody,list){
   if(!list.length){tbody.innerHTML='<tr><td colspan="6" class="empty">ไม่มีรายการที่เลือก</td></tr>';return;}
   tbody.innerHTML=list.map(r=>{
@@ -599,9 +766,5 @@ function renderRows(tbody,list){
     return '<tr><td>'+r.docNo+'</td><td><span class="pill '+pillClass(r.type)+'">'+r.type+'</span></td><td>'+r.date+'</td><td>'+dueCell+'</td><td>'+s.text+'</td><td class="r">'+amt+'</td></tr>';
   }).join("");
 }
-
-// คำสั่งทำงานอัตโนมัติเมื่อเปิดหน้าเว็บ
-loadAllShops();
-switchTab('tab1');
 </script>
 </body></html>
